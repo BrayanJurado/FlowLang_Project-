@@ -179,4 +179,164 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 (define scan&parse
   (sllgen:make-string-parser the-lexical-spec the-grammar))
 
+;;;;;;;;;;;;;;;;;;;; VALORES EXPRESADOS ;;;;;;;;;;;;;;;;;;;;
 
+(define-datatype expval expval?
+  (num-val (num number?))
+  (complex-val (real number?) (imag number?))
+  (bool-val (bool boolean?))
+  (string-val (str string?))
+  (null-val)
+  (list-val (lst list?))
+  (proto-val (fields list?) (parent expval?))
+  (proc-val (proc procval?)))
+
+;; Conversión a valor de verdad
+(define truthy?
+  (lambda (val)
+    (cases expval val
+      (bool-val (b) b)
+      (num-val (n) (not (zero? n)))
+      (string-val (s) (not (string=? s "")))
+      (null-val () #f)
+      (else #t))))
+
+;; Extracción de valores
+(define expval->num
+  (lambda (val)
+    (cases expval val
+      (num-val (n) n)
+      (complex-val (r i) r)
+      (else (eopl:error 'expval->num "Not a number: ~s" val)))))
+
+(define expval->complex
+  (lambda (val)
+    (cases expval val
+      (complex-val (r i) (cons r i))
+      (num-val (n) (cons n 0))
+      (else (eopl:error 'expval->complex "Not a complex: ~s" val)))))
+
+(define expval->string
+  (lambda (val)
+    (cases expval val
+      (string-val (s) s)
+      (else (eopl:error 'expval->string "Not a string: ~s" val)))))
+
+(define expval->list
+  (lambda (val)
+    (cases expval val
+      (list-val (lst) lst)
+      (else (eopl:error 'expval->list "Not a list: ~s" val)))))
+
+(define expval->proto
+  (lambda (val)
+    (cases expval val
+      (proto-val (fields parent) (cons fields parent))
+      (else (eopl:error 'expval->proto "Not a prototype: ~s" val)))))
+
+;;;;;;;;;;;;;;;;;;;; PROCEDIMIENTOS ;;;;;;;;;;;;;;;;;;;;
+
+(define-datatype procval procval?
+  (closure
+    (ids (list-of symbol?))
+    (body expression?)
+    (saved-env environment?)))
+
+(define apply-procval
+  (lambda (proc args this-binding)
+    (cases procval proc
+      (closure (ids body saved-env)
+        (if (not (= (length ids) (length args)))
+            (eopl:error 'apply-procval "Wrong number of arguments")
+            (let* ((new-env (extend-env ids args saved-env))
+                   (new-env (if (null-val? this-binding)
+                                new-env
+                                (extend-env '(this) (list this-binding) new-env))))
+              (eval-expression body new-env)))))))
+
+;;;;;;;;;;;;;;;;;;;; REFERENCIAS ;;;;;;;;;;;;;;;;;;;;
+
+(define-datatype reference reference?
+  (a-ref (position integer?) (vec vector?))
+  (const-ref (value expval?)))
+
+(define deref
+  (lambda (ref)
+    (cases reference ref
+      (a-ref (pos vec) (vector-ref vec pos))
+      (const-ref (val) val))))
+
+(define setref!
+  (lambda (ref val)
+    (cases reference ref
+      (a-ref (pos vec) (vector-set! vec pos val))
+      (const-ref (v) (eopl:error 'setref! "Cannot modify constant")))))
+
+;;;;;;;;;;;;;;;;;;;; AMBIENTES ;;;;;;;;;;;;;;;;;;;;
+
+(define-datatype environment environment?
+  (empty-env-record)
+  (extended-env-record
+    (syms (list-of symbol?))
+    (vec vector?)
+    (env environment?))
+  (extended-const-env-record
+    (syms (list-of symbol?))
+    (vals (list-of expval?))
+    (env environment?)))
+
+(define empty-env
+  (lambda () (empty-env-record)))
+
+(define extend-env
+  (lambda (syms vals env)
+    (extended-env-record syms (list->vector vals) env)))
+
+(define extend-const-env
+  (lambda (syms vals env)
+    (extended-const-env-record syms vals env)))
+
+(define extend-env-recursively
+  (lambda (proc-names idss bodies env)
+    (let ((len (length proc-names)))
+      (let ((vec (make-vector len)))
+        (let ((new-env (extended-env-record proc-names vec env)))
+          (for-each
+            (lambda (pos ids body)
+              (vector-set! vec pos (closure ids body new-env)))
+            (iota len) idss bodies)
+          new-env)))))
+
+(define apply-env-ref
+  (lambda (env sym)
+    (cases environment env
+      (empty-env-record ()
+        (eopl:error 'apply-env-ref "Unbound variable: ~s" sym))
+      (extended-env-record (syms vec e)
+        (let ((pos (list-find-position sym syms)))
+          (if (number? pos)
+              (a-ref pos vec)
+              (apply-env-ref e sym))))
+      (extended-const-env-record (syms vals e)
+        (let ((pos (list-find-position sym syms)))
+          (if (number? pos)
+              (const-ref (list-ref vals pos))
+              (apply-env-ref e sym)))))))
+
+(define apply-env
+  (lambda (env sym)
+    (deref (apply-env-ref env sym))))
+
+(define list-find-position
+  (lambda (sym los)
+    (let loop ((los los) (pos 0))
+      (cond
+        ((null? los) #f)
+        ((eqv? sym (car los)) pos)
+        (else (loop (cdr los) (+ pos 1)))))))
+
+(define iota
+  (lambda (end)
+    (let loop ((next 0))
+      (if (>= next end) '()
+        (cons next (loop (+ 1 next)))))))
