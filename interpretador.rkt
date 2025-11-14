@@ -132,7 +132,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (primitive ("-") subtract-prim)
     (primitive ("*") mult-prim)
     (primitive ("/") div-prim)
-    (primitive ("%") mod-prim)
+    (primitive ("mod") mod-prim)
     (primitive ("add1") incr-prim)
     (primitive ("sub1") decr-prim)
     (primitive ("zero?") zero-test-prim)
@@ -551,9 +551,18 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
               (let ((n2 (expval->num v2)))
                 (if (zero? n2)
                     (eopl:error 'div "Division by zero")
-                    (num-val (quotient (expval->num v1) n2))))))))
+                    (num-val (/ (expval->num v1) n2))))))))
       
-      (mod-prim () (num-val (remainder (expval->num (car args)) (expval->num (cadr args)))))
+      (mod-prim () 
+  (let ((v1 (expval->num (car args))) 
+        (v2 (expval->num (cadr args))))
+    (if (zero? v2)
+        (eopl:error 'mod "Modulo by zero")
+        (num-val 
+          (if (and (integer? v1) (integer? v2))
+              (remainder v1 v2)                    ; Para enteros
+              (- v1 (* v2 (truncate (/ v1 v2))))))))); Para flotantes
+      
       (incr-prim () (num-val (+ (expval->num (car args)) 1)))
       (decr-prim () (num-val (- (expval->num (car args)) 1)))
       (zero-test-prim () (bool-val (zero? (expval->num (car args)))))
@@ -605,3 +614,191 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
               (idx (expval->num (cadr args)))
               (val (caddr args)))
           (list-val (list-set lst idx val))))
+      
+      ;; Diccionarios 
+      (create-dict-prim ()
+        (let loop ((items args) (dict '()))
+          (if (null? items)
+              (proto-val dict (null-val))
+              (let ((key (expval->string (car items)))
+                    (val (cadr items)))
+                (loop (cddr items) (cons (cons key val) dict))))))
+      (dict?-prim ()
+        (cases expval (car args)
+          (proto-val (d p) (bool-val #t))
+          (else (bool-val #f))))
+      (ref-dict-prim ()
+        (let ((obj (car args))
+              (key (expval->string (cadr args))))
+          (cases expval obj
+            (proto-val (fields parent)
+              (let ((binding (assoc key fields)))
+                (if binding
+                    (cdr binding)
+                    (if (null-val? parent)
+                        (null-val)
+                        (ref-dict-prim (list parent (cadr args)))))))
+            (else (null-val)))))
+      (set-dict-prim ()
+        (let ((obj (car args))
+              (key (expval->string (cadr args)))
+              (val (caddr args)))
+          (cases expval obj
+            (proto-val (fields parent)
+              (let ((binding (assoc key fields)))
+                (if binding
+                    ;; Reemplazar binding existente
+                    (proto-val (map (lambda (p)
+                                      (if (string=? (car p) key)
+                                          (cons key val)
+                                          p))
+                                    fields)
+                              parent)
+                    ;; Agregar nuevo campo
+                    (proto-val (cons (cons key val) fields) parent))))
+            (else (eopl:error 'set-dict "Not a dictionary")))))
+      (keys-prim ()
+        (cases expval (car args)
+          (proto-val (fields parent)
+            (list-val (map (lambda (p) (string-val (car p))) fields)))
+          (else (list-val '()))))
+      (values-prim ()
+        (cases expval (car args)
+          (proto-val (fields parent)
+            (list-val (map cdr fields)))
+          (else (list-val '()))))
+      
+      ;; Prototipos
+      (clone-prim ()
+        (let ((obj (car args)))
+          (cases expval obj
+            (proto-val (fields parent)
+              ;; Crear nuevo prototipo con el objeto actual como padre
+              (proto-val '() obj))
+            (else (eopl:error 'clone "Cannot clone non-prototype")))))
+      
+      ;; Números complejos
+      (real-prim ()
+        (cases expval (car args)
+          (complex-val (r i) (num-val r))
+          (num-val (n) (num-val n))
+          (else (eopl:error 'real "Not a number"))))
+      
+      (imag-prim ()
+        (cases expval (car args)
+          (complex-val (r i) (num-val i))
+          (num-val (n) (num-val 0))
+          (else (eopl:error 'imag "Not a number"))))
+      
+      ;; Print
+      (print-prim ()
+        (begin
+          (display (expval->printable (car args)))
+          (newline)
+          (null-val)))
+      
+      ;; Acceso y asignación de campos
+      (get-field-prim ()
+        (let ((obj (car args))
+              (field-name (expval->string (cadr args))))
+          (proto-get-field obj (string->symbol field-name))))
+      
+      (set-field-prim ()
+        (let ((obj (car args))
+              (field-name (expval->string (cadr args)))
+              (val (caddr args)))
+          (proto-set-field obj (string->symbol field-name) val)))
+      )))
+
+;;;;;;;;;;;;;;;;;;;; FUNCIONES AUXILIARES ;;;;;;;;;;;;;;;;;;;;
+
+(define equal-vals?
+  (lambda (v1 v2)
+    (cases expval v1
+      (num-val (n1)
+        (cases expval v2
+          (num-val (n2) (= n1 n2))
+          (else #f)))
+      (complex-val (r1 i1)
+        (cases expval v2
+          (complex-val (r2 i2) (and (= r1 r2) (= i1 i2)))
+          (else #f)))
+      (bool-val (b1)
+        (cases expval v2
+          (bool-val (b2) (eqv? b1 b2))
+          (else #f)))
+      (string-val (s1)
+        (cases expval v2
+          (string-val (s2) (string=? s1 s2))
+          (else #f)))
+      (null-val ()
+        (cases expval v2
+          (null-val () #t)
+          (else #f)))
+      (else #f))))
+
+(define list-set
+  (lambda (lst idx val)
+    (if (zero? idx)
+        (cons val (cdr lst))
+        (cons (car lst) (list-set (cdr lst) (- idx 1) val)))))
+
+(define null-val?
+  (lambda (val)
+    (cases expval val
+      (null-val () #t)
+      (else #f))))
+
+(define expval->printable
+  (lambda (val)
+    (cases expval val
+      (num-val (n) n)
+      (complex-val (r i) 
+        (if (zero? i)
+            r
+            (string-append (number->string r) "+" (number->string i) "i")))
+      (bool-val (b) (if b "true" "false"))
+      (string-val (s) s)
+      (null-val () "null")
+      (list-val (lst) (list->printable lst))
+      (proto-val (fields parent) (proto->printable fields))
+      (proc-val (p) "#<procedure>"))))
+
+(define list->printable
+  (lambda (lst)
+    (string-append "["
+                   (if (null? lst)
+                       ""
+                       (string-append
+                        (expval->printable (car lst))
+                        (apply string-append
+                               (map (lambda (v)
+                                      (string-append ", " (expval->printable v)))
+                                    (cdr lst)))))
+                   "]")))
+
+(define proto->printable
+  (lambda (fields)
+    (string-append "{"
+                   (if (null? fields)
+                       ""
+                       (string-append
+                        (car (car fields)) ": " (expval->printable (cdr (car fields)))
+                        (apply string-append
+                               (map (lambda (p)
+                                      (string-append ", " (car p) ": " (expval->printable (cdr p))))
+                                    (cdr fields)))))
+                   "}")))
+
+;;;;;;;;;;;;;;;;;;;; INTÉRPRETE INTERACTIVO ;;;;;;;;;;;;;;;;;;;;
+
+(define run
+  (lambda (string)
+    (eval-program (scan&parse string))))
+
+(define read-eval-print
+  (sllgen:make-rep-loop "-->" eval-program
+                        (sllgen:make-stream-parser the-lexical-spec the-grammar)))
+
+;; Iniciar REPL
+(read-eval-print)
