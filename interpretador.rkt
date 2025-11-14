@@ -505,3 +505,103 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                 ;; Agregar nuevo campo
                 (proto-val (cons (cons field-str val) fields) parent))))
         (else (eopl:error 'proto-set-field "Not a prototype: ~s" obj))))))
+
+;;;;;;;;;;;;;;;;;;;; APLICACIÓN DE PRIMITIVAS ;;;;;;;;;;;;;;;;;;;;
+
+(define apply-primitive
+  (lambda (prim args env)
+    (cases primitive prim
+      ;; Aritméticas básicas
+      (add-prim ()
+        (let ((v1 (car args)) (v2 (cadr args)))
+          (cases expval v1
+            (complex-val (r1 i1)
+              (let ((c2 (expval->complex v2)))
+                (complex-val (+ r1 (car c2)) (+ i1 (cdr c2)))))
+            (else (num-val (+ (expval->num v1) (expval->num v2)))))))
+      
+      (subtract-prim ()
+        (let ((v1 (car args)) (v2 (cadr args)))
+          (cases expval v1
+            (complex-val (r1 i1)
+              (let ((c2 (expval->complex v2)))
+                (complex-val (- r1 (car c2)) (- i1 (cdr c2)))))
+            (else (num-val (- (expval->num v1) (expval->num v2)))))))
+      
+      (mult-prim ()
+        (let ((v1 (car args)) (v2 (cadr args)))
+          (cases expval v1
+            (complex-val (r1 i1)
+              (let ((c2 (expval->complex v2)))
+                (let ((r2 (car c2)) (i2 (cdr c2)))
+                  (complex-val (- (* r1 r2) (* i1 i2))
+                              (+ (* r1 i2) (* i1 r2))))))
+            (else (num-val (* (expval->num v1) (expval->num v2)))))))
+      
+      (div-prim ()
+        (let ((v1 (car args)) (v2 (cadr args)))
+          (cases expval v1
+            (complex-val (r1 i1)
+              (let ((c2 (expval->complex v2)))
+                (let ((r2 (car c2)) (i2 (cdr c2)))
+                  (let ((denom (+ (* r2 r2) (* i2 i2))))
+                    (complex-val (/ (+ (* r1 r2) (* i1 i2)) denom)
+                                (/ (- (* i1 r2) (* r1 i2)) denom))))))
+            (else
+              (let ((n2 (expval->num v2)))
+                (if (zero? n2)
+                    (eopl:error 'div "Division by zero")
+                    (num-val (quotient (expval->num v1) n2))))))))
+      
+      (mod-prim () (num-val (remainder (expval->num (car args)) (expval->num (cadr args)))))
+      (incr-prim () (num-val (+ (expval->num (car args)) 1)))
+      (decr-prim () (num-val (- (expval->num (car args)) 1)))
+      (zero-test-prim () (bool-val (zero? (expval->num (car args)))))
+      
+      ;; Comparaciones
+      (less-prim () (bool-val (< (expval->num (car args)) (expval->num (cadr args)))))
+      (greater-prim () (bool-val (> (expval->num (car args)) (expval->num (cadr args)))))
+      (lesseq-prim () (bool-val (<= (expval->num (car args)) (expval->num (cadr args)))))
+      (greatereq-prim () (bool-val (>= (expval->num (car args)) (expval->num (cadr args)))))
+      (equal-prim () (bool-val (equal-vals? (car args) (cadr args))))
+      (notequal-prim () (bool-val (not (equal-vals? (car args) (cadr args)))))
+      
+      ;; Booleanas
+      (and-prim () (bool-val (and (truthy? (car args)) (truthy? (cadr args)))))
+      (or-prim () (bool-val (or (truthy? (car args)) (truthy? (cadr args)))))
+      (not-prim () (bool-val (not (truthy? (car args)))))
+      
+      ;; Cadenas
+      (length-prim () (num-val (string-length (expval->string (car args)))))
+      (concat-prim () (string-val (string-append (expval->string (car args))
+                                                  (expval->string (cadr args)))))
+      
+      ;; Listas
+      (empty-list-prim () (list-val '()))
+      (empty?-prim () (bool-val (null? (expval->list (car args)))))
+      (cons-prim () (list-val (cons (car args) (expval->list (cadr args)))))
+      (list?-prim ()
+        (cases expval (car args)
+          (list-val (lst) (bool-val #t))
+          (else (bool-val #f))))
+      (car-prim ()
+        (let ((lst (expval->list (car args))))
+          (if (null? lst)
+              (eopl:error 'car "Empty list")
+              (car lst))))
+      (cdr-prim ()
+        (let ((lst (expval->list (car args))))
+          (if (null? lst)
+              (eopl:error 'cdr "Empty list")
+              (list-val (cdr lst)))))
+      (append-prim () (list-val (append (expval->list (car args))
+                                        (expval->list (cadr args)))))
+      (ref-list-prim ()
+        (let ((lst (expval->list (car args)))
+              (idx (expval->num (cadr args))))
+          (list-ref lst idx)))
+      (set-list-prim ()
+        (let ((lst (expval->list (car args)))
+              (idx (expval->num (cadr args)))
+              (val (caddr args)))
+          (list-val (list-set lst idx val))))
