@@ -340,3 +340,168 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (let loop ((next 0))
       (if (>= next end) '()
         (cons next (loop (+ 1 next)))))))
+
+;;;;;;;;;;;;;;;;;;;; EVALUADOR ;;;;;;;;;;;;;;;;;;;;
+
+(define eval-program
+  (lambda (pgm)
+    (cases program pgm
+      (a-program (exp)
+        (eval-expression exp (init-env))))))
+
+(define init-env
+  (lambda ()
+    (empty-env)))
+
+(define eval-expression
+  (lambda (exp env)
+    (cases expression exp
+      ;; Literales
+      (lit-exp (n) (num-val n))
+      (string-exp (s) (string-val (substring s 1 (- (string-length s) 1))))
+      (true-exp () (bool-val #t))
+      (false-exp () (bool-val #f))
+      (null-exp () (null-val))
+      (this-exp () (apply-env env 'this))
+      
+      ;; Números complejos
+      (complex-exp (real-exp imag-exp)
+        (complex-val (expval->num (eval-expression real-exp env))
+                     (expval->num (eval-expression imag-exp env))))
+      
+      ;; Variables y acceso a campos 
+      (id-exp (id chain)
+        (if (null? chain)
+            ;; Sin cadena: es solo una variable
+            (apply-env env id)
+            ;; Con cadena: es acceso a campo(s)
+            (let ((obj (apply-env env id)))
+              (let loop ((obj obj) (fields chain))
+                (if (null? fields)
+                    obj
+                    (loop (proto-get-field obj (car fields))
+                          (cdr fields)))))))
+      
+      ;; Declaraciones
+      (var-decl-exp (ids exps body)
+        (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
+          (eval-expression body (extend-env ids vals env))))
+      
+      (const-decl-exp (ids exps body)
+        (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
+          (eval-expression body (extend-const-env ids vals env))))
+      
+      (proto-decl-exp (id exp body)
+        (let ((val (eval-expression exp env)))
+          (eval-expression body (extend-env (list id) (list val) env))))
+      
+      ;; Asignación
+      (assign-exp (id exp)
+        (let ((val (eval-expression exp env)))
+          (setref! (apply-env-ref env id) val)
+          val))
+      
+      ;; Aplicación de primitivas
+      (primapp-exp (prim rands)
+        (let ((args (map (lambda (e) (eval-expression e env)) rands)))
+          (apply-primitive prim args env)))
+      
+      ;; Control de flujo
+      (if-exp (test conseq alt)
+        (if (truthy? (eval-expression test env))
+            (eval-expression conseq env)
+            (eval-expression alt env)))
+      
+      (switch-exp (test cases values default)
+        (let ((test-val (eval-expression test env)))
+          (let loop ((cases cases) (values values))
+            (if (null? cases)
+                (eval-expression default env)
+                (if (equal-vals? test-val (eval-expression (car cases) env))
+                    (eval-expression (car values) env)
+                    (loop (cdr cases) (cdr values)))))))
+      
+      ;; Iteración
+      (while-exp (test body)
+        (let loop ()
+          (if (truthy? (eval-expression test env))
+              (begin
+                (eval-expression body env)
+                (loop))
+              (null-val))))
+      
+      (for-exp (var lst-exp body)
+        (let ((lst (expval->list (eval-expression lst-exp env))))
+          (let loop ((items lst))
+            (if (null? items)
+                (null-val)
+                (let ((new-env (extend-env (list var) (list (car items)) env)))
+                  (eval-expression body new-env)
+                  (loop (cdr items)))))))
+      
+      ;; Funciones
+      (func-exp (ids body)
+        (proc-val (closure ids body env)))
+      
+      (app-exp (rator rands)
+        (let ((proc (eval-expression rator env))
+              (args (map (lambda (e) (eval-expression e env)) rands)))
+          (cases expval proc
+            (proc-val (p) (apply-procval p args (null-val)))
+            (else (eopl:error 'eval-expression 
+                    "Attempt to apply non-procedure ~s" proc)))))
+      
+      (letrec-exp (proc-names idss bodies letrec-body)
+        (eval-expression letrec-body
+          (extend-env-recursively proc-names idss bodies env)))
+      
+      ;; Secuenciación
+      (begin-exp (first rest)
+        (let loop ((result (eval-expression first env))
+                   (exps rest))
+          (if (null? exps)
+              result
+              (loop (eval-expression (car exps) env) (cdr exps)))))
+      
+      ;; Literales
+      (list-literal-exp (exps)
+        (list-val (map (lambda (e) (eval-expression e env)) exps)))
+      
+      (dict-literal-exp (keys vals)
+        (let ((key-strs (map symbol->string keys))
+              (val-expvals (map (lambda (e) (eval-expression e env)) vals)))
+          (proto-val (map cons key-strs val-expvals) (null-val))))
+      )))
+
+;;;;;;;;;;;;;;;;;;;; OPERACIONES CON PROTOTIPOS ;;;;;;;;;;;;;;;;;;;;
+
+(define proto-get-field
+  (lambda (obj field-sym)
+    (let ((field-str (symbol->string field-sym)))
+      (cases expval obj
+        (proto-val (fields parent)
+          (let ((binding (assoc field-str fields)))
+            (if binding
+                (cdr binding)
+                (if (null-val? parent)
+                    (null-val)
+                    (proto-get-field parent field-sym)))))
+        (else (eopl:error 'proto-get-field "Not a prototype: ~s" obj))))))
+
+(define proto-set-field
+  (lambda (obj field-sym val)
+    (let ((field-str (symbol->string field-sym)))
+      (cases expval obj
+        (proto-val (fields parent)
+          (let ((binding (assoc field-str fields)))
+            (if binding
+                ;; Reemplazar el binding existente
+                (proto-val (map (lambda (p)
+                                  (if (string=? (car p) field-str)
+                                      (cons field-str val)
+                                      p))
+                                fields)
+                          parent)
+                ;; Agregar nuevo campo
+                (proto-val (cons (cons field-str val) fields) parent))))
+        (else (eopl:error 'proto-set-field "Not a prototype: ~s" obj))))))
