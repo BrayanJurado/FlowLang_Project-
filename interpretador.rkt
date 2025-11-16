@@ -925,3 +925,46 @@ end
 -5+10i
 11/5+-2/5i
 #(struct:null-val)
+
+-----------------------------------------------------------------
+PREGUNTA 5: Primitivas booleanas 
+-----------------------------------------------------------------
+
+var x = 5,
+    y = 10,
+    z = 5.5,
+    w = 10.8,
+    verdad = true,
+    falso = false
+in
+begin
+  print(<(x, y));
+  print(>(x, y));
+  print(<=(x, 5));
+  print(>=(y, 10));
+  print(==(x, 5));
+  print(<>(x, y));
+  
+  print(<(z, w));
+  print(>(z, w));
+  print(<=(z, 5.5));
+  
+  print(and(verdad, falso));
+  print(or(verdad, falso));
+  print(not(verdad))
+end
+
+Salida esperada:
+> true
+  false
+  true
+  true 
+  true 
+  true 
+  true
+  false
+  true
+  false
+  true
+  false
+  #(struct:null-val)
