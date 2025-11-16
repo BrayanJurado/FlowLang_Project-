@@ -831,3 +831,20 @@ Salida esperada:
 > #(struct:list-val (#(struct:num-val 42) #(struct:num-val 3.14) #(struct:complex-val 2 5) #(struct:null-val) #(struct:string-val "Hola FlowLang") #(struct:bool-val #t) #(struct:bool-val #f)
   #(struct:proc-val #(struct:closure (x) #(struct:primapp-exp #(struct:add-prim) (#(struct:id-exp x ()) #(struct:lit-exp 1))) #(struct:empty-env-record))) #(struct:list-val (#(struct:num-val 1) #(struct:num-val 2) #(struct:num-val 3)))
   #(struct:proto-val (("nombre" . #(struct:string-val "Ana")) ("edad" . #(struct:num-val 25))) #(struct:null-val))))
+
+-----------------------------------------------------------------
+PREGUNTA 2: Variables mutables (set)
+-----------------------------------------------------------------
+Demuestra modificación de variable con set
+
+var X = 100 in
+begin
+  print(X);
+  set X = 999;
+  print(X)
+end
+
+Salida esperada:
+> 100
+  999
+  #(struct:null-val)
