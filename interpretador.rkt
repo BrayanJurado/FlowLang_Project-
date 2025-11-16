@@ -802,3 +802,32 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 
 ;; Iniciar REPL
 (read-eval-print)
+
+#|
+============================================
+               SUSTENTACIÓN
+============================================
+
+-----------------------------------------------------------------
+PREGUNTA 1 - Todos los valores denotados en UNA lista
+-----------------------------------------------------------------
+Demuestra: enteros, flotantes, complejos, nulos, cadenas,
+booleanos, procedimientos, listas, diccionarios, prototipos
+
+[
+  42,
+  3.14,
+  complejo(2, 5),
+  null,
+  "Hola FlowLang",
+  true,
+  false,
+  func(x) +(x, 1),
+  [1, 2, 3],
+  {nombre: "Ana", edad: 25}
+]
+
+Salida esperada:
+> #(struct:list-val (#(struct:num-val 42) #(struct:num-val 3.14) #(struct:complex-val 2 5) #(struct:null-val) #(struct:string-val "Hola FlowLang") #(struct:bool-val #t) #(struct:bool-val #f)
+  #(struct:proc-val #(struct:closure (x) #(struct:primapp-exp #(struct:add-prim) (#(struct:id-exp x ()) #(struct:lit-exp 1))) #(struct:empty-env-record))) #(struct:list-val (#(struct:num-val 1) #(struct:num-val 2) #(struct:num-val 3)))
+  #(struct:proto-val (("nombre" . #(struct:string-val "Ana")) ("edad" . #(struct:num-val 25))) #(struct:null-val))))
