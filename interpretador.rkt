@@ -968,3 +968,20 @@ Salida esperada:
   true
   false
   #(struct:null-val)
+
+-----------------------------------------------------------------
+PREGUNTA 6: Primitivas de cadenas - (longitud, concatenar)
+-----------------------------------------------------------------
+
+var texto1 = "Hola",
+    texto2 = " Mundo"
+in
+begin
+  print(longitud(texto1));             
+  print(concatenar(texto1, texto2))     
+end
+
+Salida esperada:
+> 4
+  Hola Mundo
+  #(struct:null-val)
