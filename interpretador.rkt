@@ -872,3 +872,56 @@ end
 
 Salida esperada:
 > Cannot modify constant
+
+-----------------------------------------------------------------
+PREGUNTA 4: Primitivas aritméticas 
+-----------------------------------------------------------------
+
+var a = 10,
+    b = 3,
+    c = 10.5,
+    d = 3.2,
+    z1 = complejo(3, 4),
+    z2 = complejo(1, 2)
+in
+begin
+  print(+(a, b));
+  print(-(a, b));
+  print(*(a, b));
+  print(mod(a, b));
+  print(/(a, b));
+  print(add1(a));
+  print(sub1(a));
+  
+  print(+(c, d));
+  print(-(c, d));
+  print(*(c, d));
+  print(mod(c, d));
+  print(/(c, d));
+  print(add1(c));
+  print(sub1(c));
+  
+  print(+(z1, z2));
+  print(-(z1, z2));
+  print(*(z1, z2));
+  print(/(z1, z2))
+end
+13
+7
+30
+1
+10/3
+11
+9
+13.7
+7.3
+33.6
+0.8999999999999986
+3.28125
+11.5
+9.5
+4+6i
+2+2i
+-5+10i
+11/5+-2/5i
+#(struct:null-val)
