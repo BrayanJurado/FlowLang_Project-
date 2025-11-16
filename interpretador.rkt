@@ -848,3 +848,27 @@ Salida esperada:
 > 100
   999
   #(struct:null-val)
+
+-----------------------------------------------------------------
+PREGUNTA 3: Constantes (variables inmutables)
+-----------------------------------------------------------------
+
+- Programa 3a: Crear constante y retornar su valor
+
+const PI = 3.14159 in print(PI)
+
+Salida esperada:
+> 3.14159
+  #(struct:null-val)
+
+
+- Programa 3b: Intentar modificar constante (debe dar ERROR)
+
+const MAX = 100 in
+begin
+  print(MAX);
+  set MAX = 200    
+end
+
+Salida esperada:
+> Cannot modify constant
