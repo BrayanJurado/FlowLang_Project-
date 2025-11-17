@@ -1,4 +1,4 @@
-lang eopl
+#lang eopl
 
 #|
 -------------------------------------------------------------------------------
@@ -985,3 +985,74 @@ Salida esperada:
 > 4
   Hola Mundo
   #(struct:null-val)
+
+-----------------------------------------------------------------
+PREGUNTA 7: Paso por valor y por referencia - X
+-----------------------------------------------------------------
+
+var X = [1, 2, 3],
+    Y = 100,
+    Z = {a: 10, b: 20},
+    W = "texto"
+in
+letrec
+  F1(a) = set-list(a, 0, 999),
+  F2(b) = begin set b = 888; b end,
+  F3(c) = set-diccionario(c, "a", 777),
+  F4(d) = begin set d = "nuevo"; d end
+in
+begin
+  set X = (F1 X);
+  (F2 Y);
+  set Z = (F3 Z);
+  (F4 W);
+  
+  begin
+    print(X);
+    print(Y);
+    print(Z);
+    print(W);
+    [X, Y, Z, W]
+  end
+end
+
+Salida esperada (DEBE DAR):
+> [999, 2, 3]
+  100
+  {a: 777, b: 20}
+  texto
+
+-----------------------------------------------------------------
+PREGUNTA 8: Registro de factoriales - X
+-----------------------------------------------------------------
+letrec
+  factorial(n) = if <=(n, 1)
+                 then 1
+                 else *(n, (factorial sub1(n)))
+                 end,
+  
+  factoriales_lista(lst) = if vacio?(lst)
+                           then vacio()
+                           else crear-lista(
+                                  (factorial cabeza(lst)),
+                                  (factoriales_lista cola(lst))
+                                )
+                           end,
+  
+  registroFactorial(lista) = crear-diccionario(
+                               "valores", lista,
+                               "factoriales", (factoriales_lista lista)
+                             )
+in
+var input = [1, 2, 3, 4, 7, 9] in
+begin
+  var resultado = (registroFactorial input) in
+  begin
+    print(ref-diccionario(resultado, "valores"));
+    print(ref-diccionario(resultado, "factoriales"));
+    print(resultado)
+  end
+end
+
+Salida esperada:
+> Debe dar un diccionario con valores y sus factoriales
