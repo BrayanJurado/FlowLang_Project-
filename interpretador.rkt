@@ -1058,7 +1058,7 @@ Salida esperada:
 > Debe dar un diccionario con valores y sus factoriales
 
 -----------------------------------------------------------------
-PREGUNTA 9: Implementación de la función map - ESTA DANDO ERRORES
+PREGUNTA 9: Implementación de la función map - X
 -----------------------------------------------------------------
 
 letrec
@@ -1083,3 +1083,67 @@ end
 Salida esperada:
 > DEBE DAR: [2, 4, 6, 8, 10]
             [1, 4, 9, 16, 25]
+
+-----------------------------------------------------------------
+PREGUNTA 10: Ciclos 
+-----------------------------------------------------------------
+
+- 10.a: Ciclo FOR
+
+var lista_original = [1, 2, 3, 4, 5] in
+for x in lista_original do
+  begin
+    var reciproco = /(1, x) in
+    begin
+      print(x);
+      print(reciproco)
+    end
+  end
+done
+
+Salida esperada:
+> 1
+  1 
+  2
+  0 
+  3
+  0
+  4
+  0
+  5
+  0
+  #(struct:null-val)
+
+
+- 10.b: Ciclo WHILE - ESTA DANDO ERRORES
+
+letrec
+  esPar?(n) = ==(%(n, 2), 0)
+in
+var i = 1,
+    resultados = vacio()
+in
+begin
+  while <=(i, 5) do
+    begin
+      var res = (esPar? i) in
+      begin
+        print(res);
+        set resultados = crear-lista(res, resultados);
+        set i = add1(i)
+      end
+    end
+  done;
+  print(resultados)
+end
+
+Salida esperada (DEBE DAR):
+> false
+  true
+  false
+  true
+  false
+  [false, true, false, true, false]
+
+
+|#
