@@ -1,4 +1,4 @@
-#lang eopl
+lang eopl
 
 #|
 -------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                  "default" ":" <expression> "end"
               |  "while" <expression> "do" <expression> "done"
               |  "for" <identifier> "in" <expression> "do" <expression> "done"
-              |  "func" "(" {<identifier>}*, ")" <expression>
+              |  "func" "(" {<identifier>}*, ")#" <expression>
               |  "(" <expression> {<expression>}* ")"
               |  "letrec" {<identifier> "(" {<identifier>}*, ")" "=" <expression>}+
                  "in" <expression>
