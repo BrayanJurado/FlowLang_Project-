@@ -1056,3 +1056,30 @@ end
 
 Salida esperada:
 > Debe dar un diccionario con valores y sus factoriales
+
+-----------------------------------------------------------------
+PREGUNTA 9: Implementación de la función map - ESTA DANDO ERRORES
+-----------------------------------------------------------------
+
+letrec
+  map(lista, funcion) = if vacio?(lista)
+                        then vacio()
+                        else crear-lista(
+                               (funcion cabeza(lista)),
+                               (map cola(lista) funcion)
+                             )
+                        end,
+  
+  doble(x) = *(x, 2),
+  
+  cuadrado(x) = *(x, x)
+in
+var numeros = [1, 2, 3, 4, 5] in
+begin
+  print((map numeros doble));
+  print((map numeros cuadrado))
+end
+
+Salida esperada:
+> DEBE DAR: [2, 4, 6, 8, 10]
+            [1, 4, 9, 16, 25]
