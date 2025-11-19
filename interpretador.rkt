@@ -884,12 +884,14 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 (read-eval-print)
 
 #|
+
+
 ============================================
                SUSTENTACIÓN
 ============================================
 
 -----------------------------------------------------------------
-PREGUNTA 1 - Todos los valores denotados en UNA lista
+PREGUNTA 1 - Todos los valores denotados en una lista
 -----------------------------------------------------------------
 Demuestra: enteros, flotantes, complejos, nulos, cadenas,
 booleanos, procedimientos, listas, diccionarios, prototipos
@@ -908,9 +910,8 @@ booleanos, procedimientos, listas, diccionarios, prototipos
 ]
 
 Salida esperada:
-> #(struct:list-val (#(struct:num-val 42) #(struct:num-val 3.14) #(struct:complex-val 2 5) #(struct:null-val) #(struct:string-val "Hola FlowLang") #(struct:bool-val #t) #(struct:bool-val #f)
-  #(struct:proc-val #(struct:closure (x) #(struct:primapp-exp #(struct:add-prim) (#(struct:id-exp x ()) #(struct:lit-exp 1))) #(struct:empty-env-record))) #(struct:list-val (#(struct:num-val 1) #(struct:num-val 2) #(struct:num-val 3)))
-  #(struct:proto-val (("nombre" . #(struct:string-val "Ana")) ("edad" . #(struct:num-val 25))) #(struct:null-val))))
+> [42, 3.14, 2+5i, null, Hola FlowLang, true, false, #<procedure>, [1, 2, 3], {nombre: Ana, edad: 25}]
+  #<void>
 
 -----------------------------------------------------------------
 PREGUNTA 2: Variables mutables (set)
@@ -927,7 +928,8 @@ end
 Salida esperada:
 > 100
   999
-  #(struct:null-val)
+  null
+  #<void>
 
 -----------------------------------------------------------------
 PREGUNTA 3: Constantes (variables inmutables)
@@ -939,7 +941,8 @@ const PI = 3.14159 in print(PI)
 
 Salida esperada:
 > 3.14159
-  #(struct:null-val)
+  null
+  #<void>
 
 
 - Programa 3b: Intentar modificar constante (debe dar ERROR)
@@ -986,25 +989,28 @@ begin
   print(*(z1, z2));
   print(/(z1, z2))
 end
-13
-7
-30
-1
-10/3
-11
-9
-13.7
-7.3
-33.6
-0.8999999999999986
-3.28125
-11.5
-9.5
-4+6i
-2+2i
--5+10i
-11/5+-2/5i
-#(struct:null-val)
+
+Salida esperada:
+> 13
+  7
+  30
+  1
+  10/3
+  11
+  9
+  13.7
+  7.3
+  33.6 
+  0.8999999999999986
+  3.28125
+  11.5
+  9.5
+  4+6i
+  2+2i
+  -5+10i
+  11/5+-2/5i
+  null 
+  #<void>
 
 -----------------------------------------------------------------
 PREGUNTA 5: Primitivas booleanas 
@@ -1038,16 +1044,17 @@ Salida esperada:
 > true
   false
   true
-  true 
-  true 
-  true 
+  true
+  true
+  true
+  true
+  false  
   true
   false
   true
   false
-  true
-  false
-  #(struct:null-val)
+  null
+  #<void>
 
 -----------------------------------------------------------------
 PREGUNTA 6: Primitivas de cadenas - (longitud, concatenar)
@@ -1064,81 +1071,102 @@ end
 Salida esperada:
 > 4
   Hola Mundo
-  #(struct:null-val)
+  null
+  #<void>
 
 -----------------------------------------------------------------
-PREGUNTA 7: Paso por valor y por referencia - X
+PREGUNTA 7: Paso por valor y por referencia 
 -----------------------------------------------------------------
 
 var X = [1, 2, 3],
     Y = 100,
     Z = {a: 10, b: 20},
-    W = "texto"
+    W = "hello"
 in
-letrec
-  F1(a) = set-list(a, 0, 999),
-  F2(b) = begin set b = 888; b end,
-  F3(c) = set-diccionario(c, "a", 777),
-  F4(d) = begin set d = "nuevo"; d end
+letrec 
+    F1(a) = 
+        set-list(a, 0, 999);
+
+    F2(b) =
+        begin
+            set b = 888;
+            0
+        end;
+
+    F3(c) =
+        set-diccionario(c, "a", 777);
+
+    F4(d) =
+        begin
+            set d = "nuevo";
+            0
+        end
 in
 begin
-  set X = (F1 X);
-  (F2 Y);
-  set Z = (F3 Z);
-  (F4 W);
-  
-  begin
+    (F1 X);
+    (F2 Y);
+    (F3 Z);
+    (F4 W);
+
     print(X);
     print(Y);
     print(Z);
     print(W);
+
     [X, Y, Z, W]
-  end
 end
 
 Salida esperada (DEBE DAR):
 > [999, 2, 3]
   100
   {a: 777, b: 20}
-  texto
+  hello
+  [[999, 2, 3], 100, {a: 777, b: 20}, hello]
+  #<void>
+
+Análisis:
+[999, 2, 3]      ← X CAMBIÓ (paso por referencia) ✓
+100              ← Y NO CAMBIÓ (paso por valor) ✓
+{a: 777, b: 20}  ← Z CAMBIÓ (paso por referencia) ✓
+hello            ← W NO CAMBIÓ (paso por valor) ✓
 
 -----------------------------------------------------------------
-PREGUNTA 8: Registro de factoriales - X
+PREGUNTA 8: Registro de factoriales 
 -----------------------------------------------------------------
 letrec
-  factorial(n) = if <=(n, 1)
-                 then 1
-                 else *(n, (factorial sub1(n)))
-                 end,
-  
-  factoriales_lista(lst) = if vacio?(lst)
-                           then vacio()
-                           else crear-lista(
-                                  (factorial cabeza(lst)),
-                                  (factoriales_lista cola(lst))
-                                )
-                           end,
-  
-  registroFactorial(lista) = crear-diccionario(
-                               "valores", lista,
-                               "factoriales", (factoriales_lista lista)
-                             )
+    fact(n) = 
+        if <(n, 2) 
+        then 
+            1 
+        else 
+            *(n, (fact -(n, 1)))
+        end;
+
+    mapFactorial(lista) = 
+        if vacio?(lista) 
+        then 
+            vacio() 
+        else 
+            crear-lista(
+                (fact cabeza(lista)), 
+                (mapFactorial cola(lista))
+            )
+        end;
+
+    registroFactorial(lista) = 
+        crear-diccionario(
+            "valores",     lista,
+            "factoriales", (mapFactorial lista)
+        )
 in
-var input = [1, 2, 3, 4, 7, 9] in
-begin
-  var resultado = (registroFactorial input) in
-  begin
-    print(ref-diccionario(resultado, "valores"));
-    print(ref-diccionario(resultado, "factoriales"));
-    print(resultado)
-  end
-end
+(registroFactorial [1, 2, 3, 4, 7, 9])
 
 Salida esperada:
-> Debe dar un diccionario con valores y sus factoriales
+> {factoriales: [1, 2, 6, 24, 5040, 362880], valores: [1, 2, 3, 4, 7, 9]}
+  #<void>
 
 -----------------------------------------------------------------
-PREGUNTA 9: Implementación de la función map - X
+PREGUNTA 9: Implementación de la función map 
 -----------------------------------------------------------------
 
 letrec
@@ -1161,8 +1189,8 @@ begin
 end
 
 Salida esperada:
-> DEBE DAR: [2, 4, 6, 8, 10]
-            [1, 4, 9, 16, 25]
+> [2, 4, 6, 8, 10]
+  [1, 4, 9, 16, 25]
 
 -----------------------------------------------------------------
 PREGUNTA 10: Ciclos 
@@ -1183,19 +1211,20 @@ done
 
 Salida esperada:
 > 1
-  1 
+  1
   2
-  0 
+  1/2
   3
-  0
+  1/3
   4
-  0
+  1/4 
   5
-  0
-  #(struct:null-val)
+  1/5 
+  null
+  #<void>
 
 
-- 10.b: Ciclo WHILE - ESTA DANDO ERRORES
+- 10.b: Ciclo WHILE 
 
 letrec
   esPar?(n) = ==(%(n, 2), 0)
@@ -1217,7 +1246,7 @@ begin
   print(resultados)
 end
 
-Salida esperada (DEBE DAR):
+Salida esperada:
 > false
   true
   false
