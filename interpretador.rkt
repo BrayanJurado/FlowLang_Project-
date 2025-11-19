@@ -171,7 +171,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 
     ;; Listas y diccionarios literales
     (expression ("[" (separated-list expression ",") "]") list-literal-exp)
-    (expression ("{" (separated-list identifier ":" expression ",") "}") dict-literal-exp)
+    ;;(expression ("{" (separated-list identifier ":" expression ",") "}") dict-literal-exp)
     ))
 
 (sllgen:make-define-datatypes the-lexical-spec the-grammar)
@@ -468,15 +468,9 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       ;; Literales
       (list-literal-exp (exps)
         (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
-          (list-val (list->vector vals))))
+          (list-val (list->vector vals)))))))
       
-      (dict-literal-exp (keys vals)
-        (let ((key-strs (map symbol->string keys))
-              (val-expvals (map (lambda (e) (eval-expression e env)) vals)))
-          (let ((dict-vec (make-vector 1)))
-            (vector-set! dict-vec 0 (map cons key-strs val-expvals))
-            (proto-val dict-vec))))
-      )))
+   
 
 ;;;;;;;;;;;;;;;;;;;; OPERACIONES CON PROTOTIPOS ;;;;;;;;;;;;;;;;;;;;
 
@@ -1262,7 +1256,7 @@ Salida esperada:
 PREGUNTA 11: Prototipos 
 -----------------------------------------------------------------
 
-var Vehiculo = crear-diccionario("Marca", "Sin marca", "Modelo", "Sin modelo") in
+prototipo Vehiculo = crear-diccionario("Marca", "Sin marca", "Modelo", "Sin modelo") in
 begin
   set-diccionario(Vehiculo, "setMarca", 
     func(nuevaMarca) 
@@ -1296,9 +1290,9 @@ begin
       )
   );
   
-  var Moto = clone(Vehiculo) in
+  prototipo Moto = clone(Vehiculo) in
   begin
-    set-diccionario(Moto, "Cilindrada", 0);
+    set-diccionario(Moto, "Cilindrada", "0");
     
     set-diccionario(Moto, "setCilindrada",
       func(nuevaCilindrada)
@@ -1323,19 +1317,19 @@ begin
         )
     );
     
-    var moto1 = clone(Moto) in
+    prototipo moto1 = clone(Moto) in
     begin
       call-method(moto1, "setMarca", "Yamaha");
       call-method(moto1, "setModelo", "YZF-R1");
       call-method(moto1, "setCilindrada", "998");
       
-      var moto2 = clone(Moto) in
+      prototipo moto2 = clone(Moto) in
       begin
         call-method(moto2, "setMarca", "Honda");
         call-method(moto2, "setModelo", "CB500F");
         call-method(moto2, "setCilindrada", "471");
         
-        var moto3 = clone(Moto) in
+        prototipo moto3 = clone(Moto) in
         begin
           call-method(moto3, "setMarca", "Kawasaki");
           call-method(moto3, "setModelo", "Ninja 400");
@@ -1382,7 +1376,7 @@ begin
             print("");
             
             print("--- COMPARACION: Vehiculo base vs Moto heredada ---");
-            var vehiculoBase = clone(Vehiculo) in
+            prototipo vehiculoBase = clone(Vehiculo) in
             begin
               call-method(vehiculoBase, "setMarca", "Ford");
               call-method(vehiculoBase, "setModelo", "Mustang");
@@ -1399,6 +1393,7 @@ begin
               print("   - Metodos heredados de Vehiculo operativos");
               print("   - Atributo Cilindrada exclusivo de Moto");
               print("   - 'this' vinculado automaticamente en metodos");
+              print("   - Usa palabra clave 'prototipo' correctamente");
               print("====================================================");
               
               moto1
@@ -1410,9 +1405,7 @@ begin
   end
 end
 
-
 Salida esperada:
-
 ====================================================
    DEMOSTRACION: HERENCIA CON PROTOTIPOS
    Vehiculo -> Moto -> moto1, moto2, moto3
@@ -1451,6 +1444,7 @@ Moto (heredada): Moto: Yamaha Racing - YZF-R1 - 998cc
    - Metodos heredados de Vehiculo operativos
    - Atributo Cilindrada exclusivo de Moto
    - 'this' vinculado automaticamente en metodos
+   - Usa palabra clave 'prototipo' correctamente
 ====================================================
 {getCilindrada: #<procedure>, setCilindrada: #<procedure>, Cilindrada: 998, describir: #<procedure>, getModelo: #<procedure>, setModelo: #<procedure>, getMarca: #<procedure>, setMarca: #<procedure>, Modelo: YZF-R1, Marca: Yamaha Racing}
 #<void>
