@@ -118,10 +118,9 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       ("(" expression (arbno expression) ")")
       app-exp)
     (expression
-      ("letrec" (arbno identifier "(" (separated-list identifier ",") ")" "=" expression)
+      ("letrec" (separated-list identifier "(" (separated-list identifier ",") ")" "=" expression ";")
        "in" expression)
       letrec-exp)
-    
     ;; Secuenciación
     (expression
       ("begin" expression (arbno ";" expression) "end")
@@ -187,8 +186,8 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
   (bool-val (bool boolean?))
   (string-val (str string?))
   (null-val)
-  (list-val (lst list?))
-  (proto-val (fields list?) (parent expval?))
+  (list-val (vec vector?))
+  (proto-val (dict-vec vector?))
   (proc-val (proc procval?)))
 
 ;; Conversión a valor de verdad
@@ -225,14 +224,14 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 (define expval->list
   (lambda (val)
     (cases expval val
-      (list-val (lst) lst)
+      (list-val (vec) vec)
       (else (eopl:error 'expval->list "Not a list: ~s" val)))))
 
-(define expval->proto
+(define expval->dict
   (lambda (val)
     (cases expval val
-      (proto-val (fields parent) (cons fields parent))
-      (else (eopl:error 'expval->proto "Not a prototype: ~s" val)))))
+      (proto-val (dict-vec) dict-vec)
+      (else (eopl:error 'expval->dict "Not a dict: ~s" val)))))
 
 ;;;;;;;;;;;;;;;;;;;; PROCEDIMIENTOS ;;;;;;;;;;;;;;;;;;;;
 
@@ -253,6 +252,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                                 new-env
                                 (extend-env '(this) (list this-binding) new-env))))
               (eval-expression body new-env)))))))
+
 
 ;;;;;;;;;;;;;;;;;;;; REFERENCIAS ;;;;;;;;;;;;;;;;;;;;
 
@@ -303,7 +303,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
         (let ((new-env (extended-env-record proc-names vec env)))
           (for-each
             (lambda (pos ids body)
-              (vector-set! vec pos (closure ids body new-env)))
+              (vector-set! vec pos (proc-val (closure ids body new-env))))
             (iota len) idss bodies)
           new-env)))))
 
@@ -372,9 +372,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       ;; Variables y acceso a campos 
       (id-exp (id chain)
         (if (null? chain)
-            ;; Sin cadena: es solo una variable
             (apply-env env id)
-            ;; Con cadena: es acceso a campo(s)
             (let ((obj (apply-env env id)))
               (let loop ((obj obj) (fields chain))
                 (if (null? fields)
@@ -431,13 +429,17 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
               (null-val))))
       
       (for-exp (var lst-exp body)
-        (let ((lst (expval->list (eval-expression lst-exp env))))
-          (let loop ((items lst))
-            (if (null? items)
-                (null-val)
-                (let ((new-env (extend-env (list var) (list (car items)) env)))
-                  (eval-expression body new-env)
-                  (loop (cdr items)))))))
+        (let ((lst-val (eval-expression lst-exp env)))
+          (cases expval lst-val
+            (list-val (vec)
+              (let ((len (vector-length vec)))
+                (let loop ((i 0))
+                  (if (< i len)
+                      (let ((new-env (extend-env (list var) (list (vector-ref vec i)) env)))
+                        (eval-expression body new-env)
+                        (loop (+ i 1)))
+                      (null-val)))))
+            (else (eopl:error 'for-exp "Not a list")))))
       
       ;; Funciones
       (func-exp (ids body)
@@ -465,12 +467,15 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       
       ;; Literales
       (list-literal-exp (exps)
-        (list-val (map (lambda (e) (eval-expression e env)) exps)))
+        (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
+          (list-val (list->vector vals))))
       
       (dict-literal-exp (keys vals)
         (let ((key-strs (map symbol->string keys))
               (val-expvals (map (lambda (e) (eval-expression e env)) vals)))
-          (proto-val (map cons key-strs val-expvals) (null-val))))
+          (let ((dict-vec (make-vector 1)))
+            (vector-set! dict-vec 0 (map cons key-strs val-expvals))
+            (proto-val dict-vec))))
       )))
 
 ;;;;;;;;;;;;;;;;;;;; OPERACIONES CON PROTOTIPOS ;;;;;;;;;;;;;;;;;;;;
@@ -479,31 +484,30 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
   (lambda (obj field-sym)
     (let ((field-str (symbol->string field-sym)))
       (cases expval obj
-        (proto-val (fields parent)
-          (let ((binding (assoc field-str fields)))
-            (if binding
-                (cdr binding)
-                (if (null-val? parent)
-                    (null-val)
-                    (proto-get-field parent field-sym)))))
+        (proto-val (dict-vec)
+          (let ((fields (vector-ref dict-vec 0)))
+            (let ((binding (assoc field-str fields)))
+              (if binding
+                  (cdr binding)
+                  (null-val)))))
         (else (eopl:error 'proto-get-field "Not a prototype: ~s" obj))))))
 
 (define proto-set-field
   (lambda (obj field-sym val)
     (let ((field-str (symbol->string field-sym)))
       (cases expval obj
-        (proto-val (fields parent)
-          (let ((binding (assoc field-str fields)))
-            (if binding
-                ;; Reemplazar el binding existente
-                (proto-val (map (lambda (p)
-                                  (if (string=? (car p) field-str)
-                                      (cons field-str val)
-                                      p))
-                                fields)
-                          parent)
-                ;; Agregar nuevo campo
-                (proto-val (cons (cons field-str val) fields) parent))))
+        (proto-val (dict-vec)
+          (let ((fields (vector-ref dict-vec 0)))
+            (let ((binding (assoc field-str fields)))
+              (if binding
+                  (vector-set! dict-vec 0
+                    (map (lambda (p)
+                           (if (string=? (car p) field-str)
+                               (cons field-str val)
+                               p))
+                         fields))
+                  (vector-set! dict-vec 0 (cons (cons field-str val) fields)))))
+          obj)
         (else (eopl:error 'proto-set-field "Not a prototype: ~s" obj))))))
 
 ;;;;;;;;;;;;;;;;;;;; APLICACIÓN DE PRIMITIVAS ;;;;;;;;;;;;;;;;;;;;
@@ -554,14 +558,14 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                     (num-val (/ (expval->num v1) n2))))))))
       
       (mod-prim () 
-  (let ((v1 (expval->num (car args))) 
-        (v2 (expval->num (cadr args))))
-    (if (zero? v2)
-        (eopl:error 'mod "Modulo by zero")
-        (num-val 
-          (if (and (integer? v1) (integer? v2))
-              (remainder v1 v2)                    ; Para enteros
-              (- v1 (* v2 (truncate (/ v1 v2))))))))); Para flotantes
+        (let ((v1 (expval->num (car args))) 
+              (v2 (expval->num (cadr args))))
+          (if (zero? v2)
+              (eopl:error 'mod "Modulo by zero")
+              (num-val 
+                (if (and (integer? v1) (integer? v2))
+                    (remainder v1 v2)
+                    (- v1 (* v2 (truncate (/ v1 v2)))))))))
       
       (incr-prim () (num-val (+ (expval->num (car args)) 1)))
       (decr-prim () (num-val (- (expval->num (car args)) 1)))
@@ -585,98 +589,159 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (concat-prim () (string-val (string-append (expval->string (car args))
                                                   (expval->string (cadr args)))))
       
-      ;; Listas
-      (empty-list-prim () (list-val '()))
-      (empty?-prim () (bool-val (null? (expval->list (car args)))))
-      (cons-prim () (list-val (cons (car args) (expval->list (cadr args)))))
+      ;; Listas - MUTABLES
+      (empty-list-prim () (list-val (make-vector 0)))
+      (empty?-prim () 
+        (cases expval (car args)
+          (list-val (vec) (bool-val (zero? (vector-length vec))))
+          (else (bool-val #f))))
+      (cons-prim () 
+        (let ((item (car args)))
+          (cases expval (cadr args)
+            (list-val (vec)
+              (let* ((len (vector-length vec))
+                     (new-vec (make-vector (+ len 1))))
+                (vector-set! new-vec 0 item)
+                (let loop ((i 0))
+                  (if (< i len)
+                      (begin
+                        (vector-set! new-vec (+ i 1) (vector-ref vec i))
+                        (loop (+ i 1)))
+                      (null-val)))
+                (list-val new-vec)))
+            (else (eopl:error 'cons "Second argument must be a list")))))
       (list?-prim ()
         (cases expval (car args)
-          (list-val (lst) (bool-val #t))
+          (list-val (vec) (bool-val #t))
           (else (bool-val #f))))
       (car-prim ()
-        (let ((lst (expval->list (car args))))
-          (if (null? lst)
-              (eopl:error 'car "Empty list")
-              (car lst))))
+        (cases expval (car args)
+          (list-val (vec)
+            (if (zero? (vector-length vec))
+                (eopl:error 'car "Empty list")
+                (vector-ref vec 0)))
+          (else (eopl:error 'car "Not a list"))))
       (cdr-prim ()
-        (let ((lst (expval->list (car args))))
-          (if (null? lst)
-              (eopl:error 'cdr "Empty list")
-              (list-val (cdr lst)))))
-      (append-prim () (list-val (append (expval->list (car args))
-                                        (expval->list (cadr args)))))
+        (cases expval (car args)
+          (list-val (vec)
+            (let ((len (vector-length vec)))
+              (if (zero? len)
+                  (eopl:error 'cdr "Empty list")
+                  (let ((new-vec (make-vector (- len 1))))
+                    (let loop ((i 0))
+                      (if (< i (- len 1))
+                          (begin
+                            (vector-set! new-vec i (vector-ref vec (+ i 1)))
+                            (loop (+ i 1)))
+                          (null-val)))
+                    (list-val new-vec)))))
+          (else (eopl:error 'cdr "Not a list"))))
+      (append-prim ()
+        (cases expval (car args)
+          (list-val (vec1)
+            (cases expval (cadr args)
+              (list-val (vec2)
+                (let* ((len1 (vector-length vec1))
+                       (len2 (vector-length vec2))
+                       (new-vec (make-vector (+ len1 len2))))
+                  (let loop ((i 0))
+                    (if (< i len1)
+                        (begin
+                          (vector-set! new-vec i (vector-ref vec1 i))
+                          (loop (+ i 1)))
+                        (null-val)))
+                  (let loop ((i 0))
+                    (if (< i len2)
+                        (begin
+                          (vector-set! new-vec (+ len1 i) (vector-ref vec2 i))
+                          (loop (+ i 1)))
+                        (null-val)))
+                  (list-val new-vec)))
+              (else (eopl:error 'append "Second argument must be a list"))))
+          (else (eopl:error 'append "First argument must be a list"))))
       (ref-list-prim ()
-        (let ((lst (expval->list (car args)))
-              (idx (expval->num (cadr args))))
-          (list-ref lst idx)))
+        (cases expval (car args)
+          (list-val (vec)
+            (let ((idx (expval->num (cadr args))))
+              (if (and (>= idx 0) (< idx (vector-length vec)))
+                  (vector-ref vec idx)
+                  (eopl:error 'ref-list "Index out of bounds"))))
+          (else (eopl:error 'ref-list "Not a list"))))
       (set-list-prim ()
-        (let ((lst (expval->list (car args)))
-              (idx (expval->num (cadr args)))
-              (val (caddr args)))
-          (list-val (list-set lst idx val))))
+        (cases expval (car args)
+          (list-val (vec)
+            (let ((idx (expval->num (cadr args)))
+                  (val (caddr args)))
+              (if (and (>= idx 0) (< idx (vector-length vec)))
+                  (begin
+                    (vector-set! vec idx val)
+                    (list-val vec))
+                  (eopl:error 'set-list "Index out of bounds"))))
+          (else (eopl:error 'set-list "Not a list"))))
       
-      ;; Diccionarios 
+      ;; Diccionarios - MUTABLES
       (create-dict-prim ()
         (let loop ((items args) (dict '()))
           (if (null? items)
-              (proto-val dict (null-val))
+              (let ((dict-vec (make-vector 1)))
+                (vector-set! dict-vec 0 dict)
+                (proto-val dict-vec))
               (let ((key (expval->string (car items)))
                     (val (cadr items)))
                 (loop (cddr items) (cons (cons key val) dict))))))
       (dict?-prim ()
         (cases expval (car args)
-          (proto-val (d p) (bool-val #t))
+          (proto-val (d) (bool-val #t))
           (else (bool-val #f))))
       (ref-dict-prim ()
-        (let ((obj (car args))
-              (key (expval->string (cadr args))))
-          (cases expval obj
-            (proto-val (fields parent)
+        (cases expval (car args)
+          (proto-val (dict-vec)
+            (let ((key (expval->string (cadr args)))
+                  (fields (vector-ref dict-vec 0)))
               (let ((binding (assoc key fields)))
                 (if binding
                     (cdr binding)
-                    (if (null-val? parent)
-                        (null-val)
-                        (ref-dict-prim (list parent (cadr args)))))))
-            (else (null-val)))))
+                    (null-val)))))
+          (else (eopl:error 'ref-dict "Not a dictionary"))))
       (set-dict-prim ()
-        (let ((obj (car args))
-              (key (expval->string (cadr args)))
-              (val (caddr args)))
-          (cases expval obj
-            (proto-val (fields parent)
+        (cases expval (car args)
+          (proto-val (dict-vec)
+            (let ((key (expval->string (cadr args)))
+                  (val (caddr args))
+                  (fields (vector-ref dict-vec 0)))
               (let ((binding (assoc key fields)))
                 (if binding
-                    ;; Reemplazar binding existente
-                    (proto-val (map (lambda (p)
-                                      (if (string=? (car p) key)
-                                          (cons key val)
-                                          p))
-                                    fields)
-                              parent)
-                    ;; Agregar nuevo campo
-                    (proto-val (cons (cons key val) fields) parent))))
-            (else (eopl:error 'set-dict "Not a dictionary")))))
+                    (vector-set! dict-vec 0
+                      (map (lambda (p)
+                             (if (string=? (car p) key)
+                                 (cons key val)
+                                 p))
+                           fields))
+                    (vector-set! dict-vec 0 (cons (cons key val) fields))))
+              (proto-val dict-vec)))
+          (else (eopl:error 'set-dict "Not a dictionary"))))
       (keys-prim ()
         (cases expval (car args)
-          (proto-val (fields parent)
-            (list-val (map (lambda (p) (string-val (car p))) fields)))
-          (else (list-val '()))))
+          (proto-val (dict-vec)
+            (let ((fields (vector-ref dict-vec 0)))
+              (list-val (list->vector (map (lambda (p) (string-val (car p))) fields)))))
+          (else (list-val (make-vector 0)))))
       (values-prim ()
         (cases expval (car args)
-          (proto-val (fields parent)
-            (list-val (map cdr fields)))
-          (else (list-val '()))))
+          (proto-val (dict-vec)
+            (let ((fields (vector-ref dict-vec 0)))
+              (list-val (list->vector (map cdr fields)))))
+          (else (list-val (make-vector 0)))))
       
       ;; Prototipos
       (clone-prim ()
-        (let ((obj (car args)))
-          (cases expval obj
-            (proto-val (fields parent)
-              ;; Crear nuevo prototipo con el objeto actual como padre
-              (proto-val '() obj))
-            (else (eopl:error 'clone "Cannot clone non-prototype")))))
-      
+        (cases expval (car args)
+          (proto-val (dict-vec)
+            (let ((new-vec (make-vector 1)))
+              (vector-set! new-vec 0 (vector-ref dict-vec 0))
+              (proto-val new-vec)))
+          (else (eopl:error 'clone "Cannot clone non-prototype"))))
+
       ;; Números complejos
       (real-prim ()
         (cases expval (car args)
@@ -735,13 +800,28 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
         (cases expval v2
           (null-val () #t)
           (else #f)))
+      (list-val (vec1)
+        (cases expval v2
+          (list-val (vec2) 
+            (and (= (vector-length vec1) (vector-length vec2))
+                 (let loop ((i 0))
+                   (or (>= i (vector-length vec1))
+                       (and (equal-vals? (vector-ref vec1 i) (vector-ref vec2 i))
+                            (loop (+ i 1)))))))
+          (else #f)))
+      (proto-val (dict-vec1)
+        (cases expval v2
+          (proto-val (dict-vec2)
+            (let ((fields1 (vector-ref dict-vec1 0))
+                  (fields2 (vector-ref dict-vec2 0)))
+              (and (= (length fields1) (length fields2))
+                   (let loop ((fs1 fields1) (fs2 fields2))
+                     (or (null? fs1)
+                         (and (string=? (car (car fs1)) (car (car fs2)))
+                              (equal-vals? (cdr (car fs1)) (cdr (car fs2)))
+                              (loop (cdr fs1) (cdr fs2))))))))
+          (else #f)))
       (else #f))))
-
-(define list-set
-  (lambda (lst idx val)
-    (if (zero? idx)
-        (cons val (cdr lst))
-        (cons (car lst) (list-set (cdr lst) (- idx 1) val)))))
 
 (define null-val?
   (lambda (val)
@@ -752,43 +832,39 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 (define expval->printable
   (lambda (val)
     (cases expval val
-      (num-val (n) n)
+      (num-val (n) (number->string n))
       (complex-val (r i) 
         (if (zero? i)
-            r
+            (number->string r)
             (string-append (number->string r) "+" (number->string i) "i")))
       (bool-val (b) (if b "true" "false"))
       (string-val (s) s)
       (null-val () "null")
-      (list-val (lst) (list->printable lst))
-      (proto-val (fields parent) (proto->printable fields))
+      (list-val (vec) 
+        (let ((lst (vector->list vec)))
+          (string-append "["
+                         (if (null? lst)
+                             ""
+                             (let ((first (expval->printable (car lst))))
+                               (string-append first
+                                 (apply string-append
+                                   (map (lambda (v)
+                                          (string-append ", " (expval->printable v)))
+                                        (cdr lst))))))
+                         "]")))
+      (proto-val (dict-vec)
+        (let ((fields (vector-ref dict-vec 0)))
+          (string-append "{"
+                         (if (null? fields)
+                             ""
+                             (let ((first-pair (car fields)))
+                               (string-append (car first-pair) ": " (expval->printable (cdr first-pair))
+                                 (apply string-append
+                                   (map (lambda (p)
+                                          (string-append ", " (car p) ": " (expval->printable (cdr p))))
+                                        (cdr fields))))))
+                         "}")))
       (proc-val (p) "#<procedure>"))))
-
-(define list->printable
-  (lambda (lst)
-    (string-append "["
-                   (if (null? lst)
-                       ""
-                       (string-append
-                        (expval->printable (car lst))
-                        (apply string-append
-                               (map (lambda (v)
-                                      (string-append ", " (expval->printable v)))
-                                    (cdr lst)))))
-                   "]")))
-
-(define proto->printable
-  (lambda (fields)
-    (string-append "{"
-                   (if (null? fields)
-                       ""
-                       (string-append
-                        (car (car fields)) ": " (expval->printable (cdr (car fields)))
-                        (apply string-append
-                               (map (lambda (p)
-                                      (string-append ", " (car p) ": " (expval->printable (cdr p))))
-                                    (cdr fields)))))
-                   "}")))
 
 ;;;;;;;;;;;;;;;;;;;; INTÉRPRETE INTERACTIVO ;;;;;;;;;;;;;;;;;;;;
 
@@ -797,8 +873,12 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (eval-program (scan&parse string))))
 
 (define read-eval-print
-  (sllgen:make-rep-loop "-->" eval-program
-                        (sllgen:make-stream-parser the-lexical-spec the-grammar)))
+  (sllgen:make-rep-loop "-->" 
+    (lambda (pgm) 
+      (let ((result (eval-program pgm)))
+        (display (expval->printable result))
+        (newline)))
+    (sllgen:make-stream-parser the-lexical-spec the-grammar)))
 
 ;; Iniciar REPL
 (read-eval-print)
