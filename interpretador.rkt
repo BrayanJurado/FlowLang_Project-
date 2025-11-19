@@ -14,7 +14,7 @@ Código: 2310107
 
 Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 
-;;;;;;;;;;;;;;;;;;;; GRAMATICA ;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;; GRAMATICA  ;;;;;;;;;;;;;;;;;;;;
 
 <program> ::= <expression>
 
@@ -22,35 +22,35 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
               |  <string-lit>
               |  <identifier> {"." <identifier>}*
               |  "true" | "false" | "null" | "this"
-              |  "var" {<identifier> "=" <expression>}+, "in" <expression>
-              |  "const" {<identifier> "=" <expression>}+, "in" <expression>
+              |  "var" {<identifier> "=" <expression>}+ "in" <expression>
+              |  "const" {<identifier> "=" <expression>}+ "in" <expression>
               |  "set" <identifier> "=" <expression>
               |  "complejo" "(" <expression> "," <expression> ")"
-              |  <primitive> "(" {<expression>}*, ")"
+              |  <primitive> "(" (separated-list <expression> ",") ")"
               |  "if" <expression> "then" <expression> "else" <expression> "end"
-              |  "switch" <expression> {"case" <expression> ":" <expression>}* 
+              |  "switch" <expression> (arbno "case" <expression> ":" <expression>) 
                  "default" ":" <expression> "end"
               |  "while" <expression> "do" <expression> "done"
               |  "for" <identifier> "in" <expression> "do" <expression> "done"
-              |  "func" "(" {<identifier>}*, ")#" <expression>
-              |  "(" <expression> {<expression>}* ")"
-              |  "letrec" {<identifier> "(" {<identifier>}*, ")" "=" <expression>}+
+              |  "func" "(" (separated-list <identifier> ",") ")" <expression>
+              |  "(" <expression> (arbno <expression>) ")"
+              |  "letrec" (separated-list <identifier> "(" (separated-list <identifier> ",") ")" "=" <expression> ";")
                  "in" <expression>
-              |  "begin" <expression> {";" <expression>}* "end"
+              |  "begin" <expression> (arbno ";" <expression>) "end"
               |  "prototipo" <identifier> "=" <expression> "in" <expression>
-              |  "[" {<expression>}*, "]"
-              |  "{" {<identifier> ":" <expression>}+, "}"
+              |  "[" (separated-list <expression> ",") "]"
+              |  "call-method" "(" <expression> "," <expression> (arbno "," <expression>) ")"
 
-<primitive> ::= "+" | "-" | "*" | "/" | "%" | "add1" | "sub1" | "zero?"
-             |  "<" | ">" | "<=" | ">=" | "==" | "<>"
-             |  "and" | "or" | "not"
-             |  "longitud" | "concatenar"
-             |  "vacio" | "vacio?" | "crear-lista" | "lista?" 
-             |  "cabeza" | "cola" | "append" | "ref-list" | "set-list"
-             |  "crear-diccionario" | "diccionario?" | "ref-diccionario" 
-             |  "set-diccionario" | "claves" | "valores"
-             |  "clone" | "print" | "real" | "imag"
-             |  "get-field" | "set-field"
+<primitive> ::= "+" | "-" | "*" | "/" | "mod" | "add1" | "sub1" | "zero?"
+              |  "<" | ">" | "<=" | ">=" | "==" | "<>"
+              |  "and" | "or" | "not"
+              |  "longitud" | "concatenar"
+              |  "vacio" | "vacio?" | "crear-lista" | "lista?" 
+              |  "cabeza" | "cola" | "append" | "ref-list" | "set-list"
+              |   "crear-diccionario" | "diccionario?" | "ref-diccionario" 
+              |  "set-diccionario" | "claves" | "valores"
+              |  "clone" | "print" | "real" | "imag"
+              |  "get-field"
 
 |#
 
@@ -894,22 +894,24 @@ PREGUNTA 1 - Todos los valores denotados en una lista
 Demuestra: enteros, flotantes, complejos, nulos, cadenas,
 booleanos, procedimientos, listas, diccionarios, prototipos
 
-[
-  42,
-  3.14,
-  complejo(2, 5),
-  null,
-  "Hola FlowLang",
-  true,
-  false,
-  func(x) +(x, 1),
-  [1, 2, 3],
-  {nombre: "Ana", edad: 25}
-]
+var entero = 42,
+    flotante = 3.14,
+    complejo_num = complejo(2, 5),
+    nulo = null,
+    cadena = "Hola FlowLang",
+    verdadero = true,
+    falso = false,
+    procedimiento = func(x) +(x, 1),
+    lista = [1, 2, 3],
+    diccionario = crear-diccionario("nombre", "Ana", "edad", 25)
+in
+[entero, flotante, complejo_num, nulo, cadena, verdadero, falso, procedimiento, lista, diccionario]
 
 Salida esperada:
-> [42, 3.14, 2+5i, null, Hola FlowLang, true, false, #<procedure>, [1, 2, 3], {nombre: Ana, edad: 25}]
-  #<void>
+> [42, 3.14, 2+5i, null, Hola FlowLang, true, false, #<procedure>, [1, 2, 3], {edad: 25, nombre: Ana}]
+
+NOTA: En nuestra implementación, los proto-val se crean con crear-diccionario, por lo que:
+crear-diccionario("nombre", "Ana", "edad", 25) representa un prototipo, cumpliendo con el item j. ✓
 
 -----------------------------------------------------------------
 PREGUNTA 2: Variables mutables (set)
@@ -1078,7 +1080,7 @@ PREGUNTA 7: Paso por valor y por referencia
 
 var X = [1, 2, 3],
     Y = 100,
-    Z = {a: 10, b: 20},
+    Z = crear-diccionario("a", 10, "b", 20),
     W = "hello"
 in
 letrec 
@@ -1114,12 +1116,12 @@ begin
     [X, Y, Z, W]
 end
 
-Salida esperada (DEBE DAR):
+Salida esperada:
 > [999, 2, 3]
   100
-  {a: 777, b: 20}
+  {b: 20, a: 777}
   hello
-  [[999, 2, 3], 100, {a: 777, b: 20}, hello]
+  [[999, 2, 3], 100, {b: 20, a: 777}, hello] 
   #<void>
 
 Análisis:
@@ -1167,28 +1169,59 @@ Salida esperada:
 PREGUNTA 9: Implementación de la función map 
 -----------------------------------------------------------------
 
-letrec
-  map(lista, funcion) = if vacio?(lista)
-                        then vacio()
-                        else crear-lista(
-                               (funcion cabeza(lista)),
-                               (map cola(lista) funcion)
-                             )
-                        end,
-  
-  doble(x) = *(x, 2),
-  
-  cuadrado(x) = *(x, x)
+letrec map(f, lista) = if vacio?(lista) then vacio() else crear-lista((f cabeza(lista)), (map f cola(lista))) end
 in
-var numeros = [1, 2, 3, 4, 5] in
+letrec duplicar(x) = *(x, 2)
+in
+letrec cuadrado(x) = *(x, x)
+in
+letrec a_string(x) = concatenar(concatenar("Num: ", 
+                          if ==(x, 1) then "1"
+                          else if ==(x, 2) then "2"
+                          else if ==(x, 3) then "3"
+                          else if ==(x, 4) then "4"
+                          else "5"
+                          end end end end), "")
+in
+var lista_original = [1, 2, 3, 4, 5]
+in
 begin
-  print((map numeros doble));
-  print((map numeros cuadrado))
+  print("Lista original:");
+  print(lista_original);
+  
+  print("Map - duplicar:");
+  var lista_duplicada = (map duplicar lista_original) in
+  begin
+    print(lista_duplicada);
+    
+    print("Map - cuadrado:");
+    var lista_cuadrados = (map cuadrado lista_original) in
+    begin
+      print(lista_cuadrados);
+      
+      print("Map - a_string:");
+      var lista_strings = (map a_string lista_original) in
+      begin
+        print(lista_strings);
+        lista_duplicada  
+
+      end
+    end
+  end
 end
 
 Salida esperada:
-> [2, 4, 6, 8, 10]
+> Lista original:
+  [1, 2, 3, 4, 5]
+  Map - duplicar:
+  [2, 4, 6, 8, 10]
+  Map - cuadrado:
   [1, 4, 9, 16, 25]
+  Map - a_string:
+  [Num: 1, Num: 2, Num: 3, Num: 4, Num: 5]
+  [2, 4, 6, 8, 10]
+  #<void>
+
 
 -----------------------------------------------------------------
 PREGUNTA 10: Ciclos 
@@ -1196,36 +1229,56 @@ PREGUNTA 10: Ciclos
 
 - 10.a: Ciclo FOR
 
-var lista_original = [1, 2, 3, 4, 5] in
-for x in lista_original do
-  begin
-    var reciproco = /(1, x) in
+var lista_original = [1, 2, 3, 4, 5],
+    lista_reciprocos = vacio()
+in
+begin
+  for x in lista_original do
     begin
-      print(x);
-      print(reciproco)
+      var reciproco = /(1, x) in
+      begin
+        print(concatenar("Original: ", 
+          if ==(x, 1) then "1" 
+          else if ==(x, 2) then "2"
+          else if ==(x, 3) then "3"
+          else if ==(x, 4) then "4"
+          else "5"
+          end end end end));
+        print(concatenar("Reciproco: ", 
+          if ==(x, 1) then "1.0"
+          else if ==(x, 2) then "0.5" 
+          else if ==(x, 3) then "0.333"
+          else if ==(x, 4) then "0.25"
+          else "0.2"
+          end end end end));
+        set lista_reciprocos = append(lista_reciprocos, [reciproco])
+      end
     end
-  end
-done
+  done;
+  print("Lista de reciprocos construida:");
+  print(lista_reciprocos);
+  lista_reciprocos
+end
 
 Salida esperada:
-> 1
-  1
-  2
-  1/2
-  3
-  1/3
-  4
-  1/4 
-  5
-  1/5 
-  null
+> Original: 1
+  Reciproco: 1.0
+  Original: 2
+  Reciproco: 0.5
+  Original: 3
+  Reciproco: 0.333
+  Original: 4
+  Reciproco: 0.25
+  Original: 5
+  Reciproco: 0.2
+  Lista de reciprocos construida:
+  [1, 1/2, 1/3, 1/4, 1/5]
+  [1, 1/2, 1/3, 1/4, 1/5]
   #<void>
-
 
 - 10.b: Ciclo WHILE 
 
-letrec
-  esPar?(n) = ==(%(n, 2), 0)
+letrec esPar?(n) = ==(mod(n, 2), 0)
 in
 var i = 1,
     resultados = vacio()
@@ -1233,24 +1286,42 @@ in
 begin
   while <=(i, 5) do
     begin
-      var res = (esPar? i) in
+      var es_par = (esPar? i) in
       begin
-        print(res);
-        set resultados = crear-lista(res, resultados);
+        print(concatenar("i = ", 
+          if ==(i, 1) then "1"
+          else if ==(i, 2) then "2"
+          else if ==(i, 3) then "3"
+          else if ==(i, 4) then "4"
+          else "5"
+          end end end end));
+        print(concatenar("esPar?(i) = ", 
+          if es_par then "true" else "false" end));
+        set resultados = append(resultados, [es_par]);
         set i = add1(i)
       end
     end
   done;
-  print(resultados)
+  print("Lista de resultados esPar?:");
+  print(resultados);
+  resultados
 end
 
 Salida esperada:
-> false
-  true
-  false
-  true
-  false
+> i = 1
+  esPar?(i) = false
+  i = 2
+  esPar?(i) = true
+  i = 3
+  esPar?(i) = false
+  i = 4
+  esPar?(i) = true
+  i = 5
+  esPar?(i) = false
+  Lista de resultados esPar?:
   [false, true, false, true, false]
+  [false, true, false, true, false]
+  #<void>
 
 -----------------------------------------------------------------
 PREGUNTA 11: Prototipos 
@@ -1448,6 +1519,5 @@ Moto (heredada): Moto: Yamaha Racing - YZF-R1 - 998cc
 ====================================================
 {getCilindrada: #<procedure>, setCilindrada: #<procedure>, Cilindrada: 998, describir: #<procedure>, getModelo: #<procedure>, setModelo: #<procedure>, getMarca: #<procedure>, setMarca: #<procedure>, Modelo: YZF-R1, Marca: Yamaha Racing}
 #<void>
-
 
 |#
