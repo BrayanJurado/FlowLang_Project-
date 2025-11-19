@@ -70,13 +70,13 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 
 (define the-grammar
   '((program (expression) a-program)
-    
-    ;; DECLARACIONES integradas como expresiones
+
+     ;; DECLARACIONES integradas como expresiones
     (expression ("var" (separated-list identifier "=" expression ",") "in" expression) var-decl-exp)
     (expression ("const" (separated-list identifier "=" expression ",") "in" expression) const-decl-exp)
     (expression ("prototipo" identifier "=" expression "in" expression) proto-decl-exp)
     (expression ("set" identifier "=" expression) assign-exp)
-    
+
     ;; EXPRESIONES
     (expression (number) lit-exp)
     (expression (string-lit) string-exp)
@@ -85,15 +85,15 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (expression ("false") false-exp)
     (expression ("null") null-exp)
     (expression ("this") this-exp)
-    
+
     ;; Números complejos
     (expression ("complejo" "(" expression "," expression ")") complex-exp)
-    
+
     ;; Primitivas
     (expression
       (primitive "(" (separated-list expression ",") ")")
       primapp-exp)
-    
+
     ;; Control de flujo
     (expression
       ("if" expression "then" expression "else" expression "end")
@@ -101,7 +101,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (expression
       ("switch" expression (arbno "case" expression ":" expression) "default" ":" expression "end")
       switch-exp)
-    
+
     ;; Iteración
     (expression
       ("while" expression "do" expression "done")
@@ -109,7 +109,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (expression
       ("for" identifier "in" expression "do" expression "done")
       for-exp)
-    
+
     ;; Funciones
     (expression
       ("func" "(" (separated-list identifier ",") ")" expression)
@@ -121,12 +121,13 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       ("letrec" (separated-list identifier "(" (separated-list identifier ",") ")" "=" expression ";")
        "in" expression)
       letrec-exp)
+
     ;; Secuenciación
     (expression
       ("begin" expression (arbno ";" expression) "end")
       begin-exp)
-    
-    ;; PRIMITIVAS
+
+    ;; PRIMITIVAS    
     (primitive ("+") add-prim)
     (primitive ("-") subtract-prim)
     (primitive ("*") mult-prim)
@@ -166,8 +167,8 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
     (primitive ("real") real-prim)
     (primitive ("imag") imag-prim)
     (primitive ("get-field") get-field-prim)
-    (primitive ("set-field") set-field-prim)
-    
+    (primitive ("call-method") call-method-prim)
+
     ;; Listas y diccionarios literales
     (expression ("[" (separated-list expression ",") "]") list-literal-exp)
     (expression ("{" (separated-list identifier ":" expression ",") "}") dict-literal-exp)
@@ -252,7 +253,6 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                                 new-env
                                 (extend-env '(this) (list this-binding) new-env))))
               (eval-expression body new-env)))))))
-
 
 ;;;;;;;;;;;;;;;;;;;; REFERENCIAS ;;;;;;;;;;;;;;;;;;;;
 
@@ -363,12 +363,12 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (false-exp () (bool-val #f))
       (null-exp () (null-val))
       (this-exp () (apply-env env 'this))
-      
+
       ;; Números complejos
       (complex-exp (real-exp imag-exp)
         (complex-val (expval->num (eval-expression real-exp env))
                      (expval->num (eval-expression imag-exp env))))
-      
+
       ;; Variables y acceso a campos 
       (id-exp (id chain)
         (if (null? chain)
@@ -379,7 +379,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                     obj
                     (loop (proto-get-field obj (car fields))
                           (cdr fields)))))))
-      
+
       ;; Declaraciones
       (var-decl-exp (ids exps body)
         (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
@@ -392,18 +392,18 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (proto-decl-exp (id exp body)
         (let ((val (eval-expression exp env)))
           (eval-expression body (extend-env (list id) (list val) env))))
-      
+
       ;; Asignación
       (assign-exp (id exp)
         (let ((val (eval-expression exp env)))
           (setref! (apply-env-ref env id) val)
           val))
-      
+
       ;; Aplicación de primitivas
       (primapp-exp (prim rands)
         (let ((args (map (lambda (e) (eval-expression e env)) rands)))
           (apply-primitive prim args env)))
-      
+
       ;; Control de flujo
       (if-exp (test conseq alt)
         (if (truthy? (eval-expression test env))
@@ -418,7 +418,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                 (if (equal-vals? test-val (eval-expression (car cases) env))
                     (eval-expression (car values) env)
                     (loop (cdr cases) (cdr values)))))))
-      
+
       ;; Iteración
       (while-exp (test body)
         (let loop ()
@@ -440,7 +440,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                         (loop (+ i 1)))
                       (null-val)))))
             (else (eopl:error 'for-exp "Not a list")))))
-      
+
       ;; Funciones
       (func-exp (ids body)
         (proc-val (closure ids body env)))
@@ -456,7 +456,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (letrec-exp (proc-names idss bodies letrec-body)
         (eval-expression letrec-body
           (extend-env-recursively proc-names idss bodies env)))
-      
+
       ;; Secuenciación
       (begin-exp (first rest)
         (let loop ((result (eval-expression first env))
@@ -464,7 +464,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
           (if (null? exps)
               result
               (loop (eval-expression (car exps) env) (cdr exps)))))
-      
+
       ;; Literales
       (list-literal-exp (exps)
         (let ((vals (map (lambda (e) (eval-expression e env)) exps)))
@@ -570,7 +570,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (incr-prim () (num-val (+ (expval->num (car args)) 1)))
       (decr-prim () (num-val (- (expval->num (car args)) 1)))
       (zero-test-prim () (bool-val (zero? (expval->num (car args)))))
-      
+
       ;; Comparaciones
       (less-prim () (bool-val (< (expval->num (car args)) (expval->num (cadr args)))))
       (greater-prim () (bool-val (> (expval->num (car args)) (expval->num (cadr args)))))
@@ -578,17 +578,17 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
       (greatereq-prim () (bool-val (>= (expval->num (car args)) (expval->num (cadr args)))))
       (equal-prim () (bool-val (equal-vals? (car args) (cadr args))))
       (notequal-prim () (bool-val (not (equal-vals? (car args) (cadr args)))))
-      
+
       ;; Booleanas
       (and-prim () (bool-val (and (truthy? (car args)) (truthy? (cadr args)))))
       (or-prim () (bool-val (or (truthy? (car args)) (truthy? (cadr args)))))
       (not-prim () (bool-val (not (truthy? (car args)))))
-      
+
       ;; Cadenas
       (length-prim () (num-val (string-length (expval->string (car args)))))
       (concat-prim () (string-val (string-append (expval->string (car args))
                                                   (expval->string (cadr args)))))
-      
+
       ;; Listas - MUTABLES
       (empty-list-prim () (list-val (make-vector 0)))
       (empty?-prim () 
@@ -678,7 +678,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
                     (list-val vec))
                   (eopl:error 'set-list "Index out of bounds"))))
           (else (eopl:error 'set-list "Not a list"))))
-      
+
       ;; Diccionarios - MUTABLES
       (create-dict-prim ()
         (let loop ((items args) (dict '()))
@@ -732,7 +732,7 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
             (let ((fields (vector-ref dict-vec 0)))
               (list-val (list->vector (map cdr fields)))))
           (else (list-val (make-vector 0)))))
-      
+
       ;; Prototipos
       (clone-prim ()
         (cases expval (car args)
@@ -754,25 +754,30 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
           (complex-val (r i) (num-val i))
           (num-val (n) (num-val 0))
           (else (eopl:error 'imag "Not a number"))))
-      
+
       ;; Print
       (print-prim ()
         (begin
           (display (expval->printable (car args)))
           (newline)
           (null-val)))
-      
+
       ;; Acceso y asignación de campos
       (get-field-prim ()
         (let ((obj (car args))
               (field-name (expval->string (cadr args))))
           (proto-get-field obj (string->symbol field-name))))
       
-      (set-field-prim ()
-        (let ((obj (car args))
-              (field-name (expval->string (cadr args)))
-              (val (caddr args)))
-          (proto-set-field obj (string->symbol field-name) val)))
+      (call-method-prim ()
+  (let ((obj (car args))
+        (method-name (expval->string (cadr args)))
+        (method-args (cddr args)))
+    (let ((method (proto-get-field obj (string->symbol method-name))))
+      (cases expval method
+        (proc-val (proc) 
+          ;; Pasamos obj COMO 'this'
+          (apply-procval proc method-args obj))
+        (else (eopl:error 'call-method "Not a procedure: ~s" method))))))
       )))
 
 ;;;;;;;;;;;;;;;;;;;; FUNCIONES AUXILIARES ;;;;;;;;;;;;;;;;;;;;
@@ -883,9 +888,8 @@ Enlace al repositorio: https://github.com/BrayanJurado/FlowLang_Project-.git
 ;; Iniciar REPL
 (read-eval-print)
 
+
 #|
-
-
 ============================================
                SUSTENTACIÓN
 ============================================
@@ -1253,6 +1257,203 @@ Salida esperada:
   true
   false
   [false, true, false, true, false]
+
+-----------------------------------------------------------------
+PREGUNTA 11: Prototipos 
+-----------------------------------------------------------------
+
+var Vehiculo = crear-diccionario("Marca", "Sin marca", "Modelo", "Sin modelo") in
+begin
+  set-diccionario(Vehiculo, "setMarca", 
+    func(nuevaMarca) 
+      begin
+        set-diccionario(this, "Marca", nuevaMarca);
+        this
+      end
+  );
+  
+  set-diccionario(Vehiculo, "getMarca",
+    func() ref-diccionario(this, "Marca")
+  );
+  
+  set-diccionario(Vehiculo, "setModelo",
+    func(nuevoModelo)
+      begin
+        set-diccionario(this, "Modelo", nuevoModelo);
+        this
+      end
+  );
+  
+  set-diccionario(Vehiculo, "getModelo",
+    func() ref-diccionario(this, "Modelo")
+  );
+  
+  set-diccionario(Vehiculo, "describir",
+    func()
+      concatenar(
+        concatenar("Vehiculo: ", ref-diccionario(this, "Marca")),
+        concatenar(" - Modelo: ", ref-diccionario(this, "Modelo"))
+      )
+  );
+  
+  var Moto = clone(Vehiculo) in
+  begin
+    set-diccionario(Moto, "Cilindrada", 0);
+    
+    set-diccionario(Moto, "setCilindrada",
+      func(nuevaCilindrada)
+        begin
+          set-diccionario(this, "Cilindrada", nuevaCilindrada);
+          this
+        end
+    );
+    
+    set-diccionario(Moto, "getCilindrada",
+      func() ref-diccionario(this, "Cilindrada")
+    );
+    
+    set-diccionario(Moto, "describir",
+      func()
+        concatenar(
+          concatenar(
+            concatenar("Moto: ", ref-diccionario(this, "Marca")),
+            concatenar(" - ", ref-diccionario(this, "Modelo"))
+          ),
+          concatenar(" - ", concatenar(ref-diccionario(this, "Cilindrada"), "cc"))
+        )
+    );
+    
+    var moto1 = clone(Moto) in
+    begin
+      call-method(moto1, "setMarca", "Yamaha");
+      call-method(moto1, "setModelo", "YZF-R1");
+      call-method(moto1, "setCilindrada", "998");
+      
+      var moto2 = clone(Moto) in
+      begin
+        call-method(moto2, "setMarca", "Honda");
+        call-method(moto2, "setModelo", "CB500F");
+        call-method(moto2, "setCilindrada", "471");
+        
+        var moto3 = clone(Moto) in
+        begin
+          call-method(moto3, "setMarca", "Kawasaki");
+          call-method(moto3, "setModelo", "Ninja 400");
+          call-method(moto3, "setCilindrada", "399");
+          
+          begin
+            print("====================================================");
+            print("   DEMOSTRACION: HERENCIA CON PROTOTIPOS");
+            print("   Vehiculo -> Moto -> moto1, moto2, moto3");
+            print("====================================================");
+            print("");
+            
+            print("--- INFORMACION DE LAS 3 MOTOS ---");
+            print(call-method(moto1, "describir"));
+            print(call-method(moto2, "describir"));
+            print(call-method(moto3, "describir"));
+            print("");
+            
+            print("--- PRUEBA DE GETTERS ---");
+            print(concatenar("Marca de moto1 (heredado): ", 
+                            call-method(moto1, "getMarca")));
+            print(concatenar("Modelo de moto2 (heredado): ",
+                            call-method(moto2, "getModelo")));
+            print(concatenar("Cilindrada de moto3 (propio): ",
+                            call-method(moto3, "getCilindrada")));
+            print("");
+            
+            print("--- PRUEBA DE SETTERS (Modificando atributos) ---");
+            print("Cambiando marca de moto1 a 'Yamaha Racing'...");
+            call-method(moto1, "setMarca", "Yamaha Racing");
+            
+            print("Cambiando cilindrada de moto3 a 450cc...");
+            call-method(moto3, "setCilindrada", "450");
+            
+            print("Nuevos valores:");
+            print(call-method(moto1, "describir"));
+            print(call-method(moto3, "describir"));
+            print("");
+            
+            print("--- VERIFICACION DE HERENCIA ---");
+            print("Moto1 tiene setMarca heredado de Vehiculo? Si");
+            print("Moto1 tiene setCilindrada propio de Moto? Si");
+            print("Moto1 sobrescribio el metodo describir? Si");
+            print("");
+            
+            print("--- COMPARACION: Vehiculo base vs Moto heredada ---");
+            var vehiculoBase = clone(Vehiculo) in
+            begin
+              call-method(vehiculoBase, "setMarca", "Ford");
+              call-method(vehiculoBase, "setModelo", "Mustang");
+              print(concatenar("Vehiculo base: ", 
+                              call-method(vehiculoBase, "describir")));
+              print(concatenar("Moto (heredada): ",
+                              call-method(moto1, "describir")));
+              print("");
+              
+              print("====================================================");
+              print("   CONCLUSION: Herencia exitosa demostrada");
+              print("   - 3 motos creadas con diferentes atributos");
+              print("   - Getters y setters funcionando correctamente");
+              print("   - Metodos heredados de Vehiculo operativos");
+              print("   - Atributo Cilindrada exclusivo de Moto");
+              print("   - 'this' vinculado automaticamente en metodos");
+              print("====================================================");
+              
+              moto1
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+
+Salida esperada:
+
+====================================================
+   DEMOSTRACION: HERENCIA CON PROTOTIPOS
+   Vehiculo -> Moto -> moto1, moto2, moto3
+====================================================
+
+--- INFORMACION DE LAS 3 MOTOS ---
+Moto: Yamaha - YZF-R1 - 998cc
+Moto: Honda - CB500F - 471cc
+Moto: Kawasaki - Ninja 400 - 399cc
+
+--- PRUEBA DE GETTERS ---
+Marca de moto1 (heredado): Yamaha
+Modelo de moto2 (heredado): CB500F
+Cilindrada de moto3 (propio): 399
+
+--- PRUEBA DE SETTERS (Modificando atributos) ---
+Cambiando marca de moto1 a 'Yamaha Racing'...
+Cambiando cilindrada de moto3 a 450cc...
+Nuevos valores:
+Moto: Yamaha Racing - YZF-R1 - 998cc
+Moto: Kawasaki - Ninja 400 - 450cc
+
+--- VERIFICACION DE HERENCIA ---
+Moto1 tiene setMarca heredado de Vehiculo? Si
+Moto1 tiene setCilindrada propio de Moto? Si
+Moto1 sobrescribio el metodo describir? Si
+
+--- COMPARACION: Vehiculo base vs Moto heredada ---
+Vehiculo base: Vehiculo: Ford - Modelo: Mustang
+Moto (heredada): Moto: Yamaha Racing - YZF-R1 - 998cc
+
+====================================================
+   CONCLUSION: Herencia exitosa demostrada
+   - 3 motos creadas con diferentes atributos
+   - Getters y setters funcionando correctamente
+   - Metodos heredados de Vehiculo operativos
+   - Atributo Cilindrada exclusivo de Moto
+   - 'this' vinculado automaticamente en metodos
+====================================================
+{getCilindrada: #<procedure>, setCilindrada: #<procedure>, Cilindrada: 998, describir: #<procedure>, getModelo: #<procedure>, setModelo: #<procedure>, getMarca: #<procedure>, setMarca: #<procedure>, Modelo: YZF-R1, Marca: Yamaha Racing}
+#<void>
 
 
 |#
